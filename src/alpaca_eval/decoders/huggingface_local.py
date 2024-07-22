@@ -1,5 +1,5 @@
 import logging
-from typing import Optional, Sequence
+from typing import Optional, Sequence, List
 
 import numpy as np
 import torch
@@ -35,6 +35,7 @@ def huggingface_local_completions(
     remove_ending: Optional[str] = None,
     is_fast_tokenizer: bool = True,
     adapters_name: Optional[str] = None,
+    additional_terminators: Optional[List[str]] = None,
     **kwargs,
 ) -> dict[str, list]:
     """Decode locally using huggingface transformers pipeline.
@@ -134,6 +135,14 @@ def huggingface_local_completions(
         trust_remote_code=model_kwargs.get("trust_remote_code", False),
     )
 
+    ## Add optional pipeline arguments
+    pipeline_kwargs = {}
+    if additional_terminators is not None:
+        terminators = [pipeline.tokenizer.eos_token_id]
+        for terminator in additional_terminators:
+            terminators.append(pipeline.tokenizer.convert_tokens_to_ids(terminator))
+        pipeline_kwargs['eos_token_id'] = terminators
+
     ## compute and log the time for completions
     prompts_dataset = ListDataset(prompts)
     completions = []
@@ -144,6 +153,7 @@ def huggingface_local_completions(
                 prompts_dataset,
                 return_full_text=False,
                 pad_token_id=tokenizer.pad_token_id,
+                **pipeline_kwargs
             )
         ):
             generated_text = out[0]["generated_text"]
